@@ -7,7 +7,7 @@
 
 - Compile: `go install -v github.com/heptiolabs/certstream-slack`
 
-- Run: `SLACK_WEBHOOK_URL='https://hooks.slack.com/services/[...]' DOMAIN_PATTERN='heptio' certstream-slack`
+- Run: `SLACK_WEBHOOK_URL='https://hooks.slack.com/services/[...]' DOMAIN_PATTERN='example' certstream-slack`
 
 ## Environment Variables
 
@@ -16,3 +16,4 @@
 
 - **`DOMAIN_PATTERN`**: A [Go regular expression](https://golang.org/pkg/regexp/syntax/).
   Certificates for domains that match this pattern will be posted to Slack.
+  Consider watching your company's name and product names, for example: `(mycompany)|(myproduct1)|(myproduct2)`.
