@@ -19,7 +19,10 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
+
+	"github.com/dustin/go-humanize/english"
 
 	slack "github.com/ashwanthkumar/slack-go-webhook"
 	"github.com/gorilla/websocket"
@@ -77,33 +80,44 @@ func main() {
 			continue
 		}
 
-		// if none of the domains match our regex, we're done
-		match := false
+		// collect a list of matching domains
+		matches := []string{}
 		for _, domain := range domains {
-			match = match || domainRegex.MatchString(domain)
+			if !domainRegex.MatchString(domain) {
+				continue
+			}
+			// wrap each domain in backticks for a prettier Slack message
+			matches = append(matches, "`"+domain+"`")
 		}
-		if !match {
+
+		// if none of the domains match our regex, we're done
+		if len(matches) == 0 {
 			continue
 		}
 
-		// otherwise pull the certificate fingerprint
+		// report the matches in sorted order
+		sort.Strings(matches)
+
+		// generate a message like " and X others" if there are extra domains in
+		// the cert that didn't match
+		additionalDomains := len(domains) - len(matches)
+		if additionalDomains > 0 {
+			matches = append(matches, fmt.Sprintf("%d others", additionalDomains))
+		}
+
+		// pull the certificate fingerprint and use it to get the crt.sh URL
 		fingerprint, err := jq.String("data", "leaf_cert", "fingerprint")
 		if err != nil {
 			log.WithError(err).Error("could not parse fingerprint from matching certificate")
 		}
-
-		// wrap each domain in backticks for a prettier Slack message
-		formattedDomains := []string{}
-		for _, domain := range domains {
-			formattedDomains = append(formattedDomains, "`"+domain+"`")
-		}
+		certURL := fmt.Sprintf("https://crt.sh/?q=%s", strings.Replace(fingerprint, ":", "", -1))
 
 		// post the Slack message
 		payload := slack.Payload{
 			Text: fmt.Sprintf(
-				"Found matching certificate for %s: https://crt.sh/?q=%s",
-				strings.Join(formattedDomains, ","),
-				strings.Replace(fingerprint, ":", "", -1),
+				"Found matching certificate for %s: %s",
+				english.OxfordWordSeries(matches, "and"),
+				certURL,
 			),
 		}
 		for _, err := range slack.Send(webhookURL, "", payload) {
